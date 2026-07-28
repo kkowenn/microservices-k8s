@@ -1,0 +1,53 @@
+Kubectl Commands Used in This Project
+======================================
+
+Resource Management
+-------------------
+kubectl apply -f <file>             Apply YAML manifests (ArgoCD configs)
+kubectl apply -k <dir>              Apply Kustomize overlays
+kubectl delete -f <file>            Delete resources by YAML file
+kubectl delete -k <dir>             Delete Kustomize overlays
+
+Namespaces
+----------
+kubectl create namespace <name>     Create namespaces (argocd, demo-*)
+kubectl delete namespace <name>     Remove namespaces
+kubectl get namespaces              Verify cleanup
+
+Pods & Deployments
+------------------
+kubectl get pods -n <namespace>     List pods in a namespace
+kubectl wait --for=condition=available deployment/<name>
+                                    Wait for deployments to be ready
+
+Secrets
+-------
+kubectl create secret docker-registry <name>
+                                    Create image pull secrets (GCR/AR)
+kubectl create secret generic <name>
+                                    Create postgres credentials
+kubectl get secrets -n <namespace>  Verify secrets created
+kubectl get secret <name> -o jsonpath="{.data.password}"
+                                    Read ArgoCD admin password
+
+Networking
+----------
+kubectl port-forward svc/web 3000:80 -n <namespace>
+                                    Access web app locally (port 3000)
+kubectl port-forward svc/argocd-server 8443:443 -n argocd
+                                    Access ArgoCD UI (port 8443)
+
+Cluster
+-------
+kubectl cluster-info                Verify cluster is running
+
+Common Flags
+------------
+-n <namespace>                      Target namespace
+-f <file>                           Specify YAML file
+-k <dir>                            Use Kustomize directory
+-o jsonpath                         Extract specific fields
+-o yaml                             Output as YAML
+--dry-run=client -o yaml            Generate YAML without applying
+--timeout=<duration>                Set wait timeout
+2>/dev/null || true                 Suppress errors, continue on failure
