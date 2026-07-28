@@ -9,6 +9,14 @@ resources:
 patches:
   - target:
       kind: Deployment
+      name: api
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 3
+  - target:
+      kind: Deployment
+      name: web
     patch: |
       - op: replace
         path: /spec/replicas
@@ -21,3 +29,6 @@ images:
   - name: web
     newName: registry.example.com/web
     newTag: v1.0.0
+  - name: postgres
+    newName: postgres
+    newTag: "16-alpine"

@@ -20,6 +20,26 @@ spec:
           image: api:latest
           ports:
             - containerPort: 3000
+          env:
+            - name: DATABASE_HOST
+              value: "postgres"
+            - name: DATABASE_PORT
+              value: "5432"
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_USER
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_PASSWORD
+            - name: DATABASE_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_DB
           resources:
             requests:
               cpu: 100m
