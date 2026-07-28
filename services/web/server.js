@@ -1,6 +1,6 @@
 const http = require("http");
 
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 3000;
 const API_URL = process.env.API_URL || "http://api";
 
 const server = http.createServer((req, res) => {
@@ -16,7 +16,7 @@ const server = http.createServer((req, res) => {
     <html>
     <head><title>Demo App</title></head>
     <body>
-      <h1>ArgoCD Demo</h1>
+      <h1>Microservices K8s</h1>
       <p>API endpoint: ${API_URL}</p>
       <div id="items"></div>
       <script>

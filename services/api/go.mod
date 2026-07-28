@@ -1,4 +1,4 @@
-module github.com/argocd-demo/api
+module github.com/microservices-k8s/api
 
 go 1.22
 
