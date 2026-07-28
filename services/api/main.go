@@ -27,7 +27,7 @@ type HealthResponse struct {
 func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "3000"
+		port = "8000"
 	}
 
 	var err error

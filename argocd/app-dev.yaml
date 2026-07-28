@@ -6,7 +6,7 @@ metadata:
 spec:
   project: demo
   source:
-    repoURL: https://github.com/kkowenn/argocd-demo.git
+    repoURL: https://github.com/kkowenn/microservices-k8s.git
     targetRevision: main
     path: k8s/overlays/dev
   destination:
