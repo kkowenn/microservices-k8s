@@ -32,6 +32,7 @@ echo "[2/4] Removing demo environments..."
 kubectl delete -k "$PROJECT_DIR/k8s/overlays/dev" 2>/dev/null || true
 kubectl delete -k "$PROJECT_DIR/k8s/overlays/staging" 2>/dev/null || true
 kubectl delete -k "$PROJECT_DIR/k8s/overlays/prod" 2>/dev/null || true
+kubectl delete -k "$PROJECT_DIR/k8s/overlays/dev-cnpg" 2>/dev/null || true
 
 # ─── Remove namespaces ───
 echo ""
@@ -50,6 +51,19 @@ if [[ "$remove_argocd" == "y" || "$remove_argocd" == "Y" ]]; then
   echo "  ArgoCD removed."
 else
   echo "[4/4] Keeping ArgoCD."
+fi
+
+# ─── Remove CNPG operator (optional) ───
+echo ""
+read -p "Also remove CNPG operator? (y/N): " remove_cnpg
+if [[ "$remove_cnpg" == "y" || "$remove_cnpg" == "Y" ]]; then
+  echo "Removing CNPG operator..."
+  kubectl delete -f \
+    https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.25/releases/cnpg-1.25.1.yaml \
+    2>/dev/null || true
+  echo "  CNPG operator removed."
+else
+  echo "Keeping CNPG operator."
 fi
 
 # ─── Remove Docker images (optional) ───
