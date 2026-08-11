@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+spec:
+  template:
+    spec:
+      containers:
+        - name: api
+          env:
+            - name: DATABASE_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: cnpg-cluster-app
+                  key: host
+            - name: DATABASE_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: cnpg-cluster-app
+                  key: port
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: cnpg-cluster-app
+                  key: username
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cnpg-cluster-app
+                  key: password
+            - name: DATABASE_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: cnpg-cluster-app
+                  key: dbname
