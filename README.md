@@ -4,7 +4,7 @@ Node.js frontend, Go API, NGINX gateway, and PostgreSQL on Kubernetes with Kusto
 
 ## Architecture
 
-![Kubernetes architecture diagram](diagram.png)
+![Kubernetes architecture diagram](diagram.png.jpg)
 
 ## Run locally
 
