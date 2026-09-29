@@ -9,11 +9,13 @@ spec:
         - name: api
           env:
             - name: DATABASE_HOST
+              value: null
               valueFrom:
                 secretKeyRef:
                   name: cnpg-cluster-app
                   key: host
             - name: DATABASE_PORT
+              value: null
               valueFrom:
                 secretKeyRef:
                   name: cnpg-cluster-app
