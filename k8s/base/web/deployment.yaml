@@ -15,6 +15,8 @@ spec:
       labels:
         app: web
     spec:
+      serviceAccountName: web
+      automountServiceAccountToken: false
       containers:
         - name: web
           image: web:latest

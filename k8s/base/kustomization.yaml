@@ -16,3 +16,9 @@ resources:
   - nginx/deployment.yaml
   - nginx/service.yaml
   - ingress.yaml
+  # Service accounts
+  - api/serviceaccount.yaml
+  - web/serviceaccount.yaml
+  - nginx/serviceaccount.yaml
+  - postgres/serviceaccount.yaml
+  - postgres/backup-serviceaccount.yaml

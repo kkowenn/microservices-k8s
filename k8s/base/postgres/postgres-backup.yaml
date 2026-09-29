@@ -2,7 +2,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: postgres-backups
-  namespace: demo-dev
+  namespace: demo
 spec:
   accessModes:
   - ReadWriteOnce
@@ -14,7 +14,7 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: postgres-backup
-  namespace: demo-dev
+  namespace: demo
 spec:
   # Run daily at 02:00 Bangkok time
   schedule: "0 2 * * *"
@@ -37,6 +37,7 @@ spec:
 
       template:
         spec:
+          serviceAccountName: postgres-backup
           restartPolicy: Never
           automountServiceAccountToken: false
 
