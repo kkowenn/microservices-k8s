@@ -56,13 +56,35 @@ backup PVC and a CronJob scheduled for 02:00 Bangkok time. It is suspended by
 default. Each run uses `pg_dump`, then removes completed backups older than
 7 days. Test backup and restore before enabling the schedule.
 
-## Stop or clean up
+## Stop and resume
 
-Press **Ctrl+C** to stop port-forward. To pause Minikube:
+Stop Kind and its explicitly targeted port-forwards for the day. Database and
+backup volumes are preserved; other Docker applications keep running.
+
+```bash
+bash scripts/local-cluster.sh stop
+```
+
+To resume, start Docker Desktop if needed, then run:
+
+```bash
+bash scripts/local-cluster.sh start
+kubectl --context=kind-kind -n demo-dev port-forward svc/nginx 3000:80
+```
+
+Open **http://localhost:3000** and keep port-forward running.
+Use `KIND_CLUSTER_NAME=my-cluster` with the script for a different Kind cluster.
+
+For Minikube:
 
 ```bash
 minikube stop -p microservices-k8s
+# Resume later
+bash scripts/minikube.sh
+kubectl --context=microservices-k8s -n demo-dev port-forward svc/nginx 3000:80
 ```
+
+## Remove the app
 
 To remove this app from Kind, including its database and backup volume claims/data:
 
