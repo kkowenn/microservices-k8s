@@ -51,6 +51,7 @@ echo "  Waiting for pods to be ready..."
 kubectl wait --for=condition=available deployment/postgres -n demo-dev --timeout=120s 2>/dev/null || true
 kubectl wait --for=condition=available deployment/api -n demo-dev --timeout=120s 2>/dev/null || true
 kubectl wait --for=condition=available deployment/web -n demo-dev --timeout=120s 2>/dev/null || true
+kubectl wait --for=condition=available deployment/nginx -n demo-dev --timeout=120s 2>/dev/null || true
 
 # ─── Install ArgoCD ───
 echo ""
@@ -90,7 +91,7 @@ echo "========================================="
 echo "  Access"
 echo "========================================="
 echo ""
-echo "  App:     kubectl port-forward svc/web 3000:80 -n demo-dev"
+echo "  App:     kubectl port-forward svc/nginx 3000:80 -n demo-dev"
 echo "           → http://localhost:3000"
 echo ""
 echo "  ArgoCD:  kubectl port-forward svc/argocd-server 8443:443 -n argocd"

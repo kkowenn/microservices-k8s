@@ -1,0 +1,17 @@
+# Generated diagrams
+docs/diagrams/*.png
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
