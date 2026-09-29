@@ -1,0 +1,40 @@
+kubectl --context=kind-kind -n demo-dev get serviceaccounts                                                      ─╯
+NAME              AGE
+api               117s
+default           5h53m
+nginx             117s
+postgres          117s
+postgres-backup   117s
+web               117s
+
+kubectl --context=kind-kind -n demo-dev get pods \                                                               ─╯
+  -o 'custom-columns=NAME:.metadata.name,SA:.spec.serviceAccountName,AUTOMOUNT:.spec.automountServiceAccountToken'
+NAME                                    SA         AUTOMOUNT
+api-54dcfcbb6-9t4c7                     api        false
+nginx-d4f57745c-5r8hw                   nginx      false
+postgres-0                              postgres   false
+postgres-backup-test-1790675830-rx56m   default    false
+web-d456b4dc9-xbckc                     web        false
+
+ backup_job="postgres-backup-sa-test-$(date +%s)"                                                                 ─╯
+
+kubectl --context=kind-kind -n demo-dev create job \
+  "$backup_job" --from=cronjob/postgres-backup
+
+kubectl --context=kind-kind -n demo-dev wait \
+  --for=condition=complete "job/$backup_job" --timeout=660s
+
+kubectl --context=kind-kind -n demo-dev logs "job/$backup_job"
+
+kubectl --context=kind-kind -n demo-dev get pods \
+  -l "job-name=$backup_job" \
+  -o 'custom-columns=NAME:.metadata.name,SA:.spec.serviceAccountName,AUTOMOUNT:.spec.automountServiceAccountToken'
+job.batch/postgres-backup-sa-test-1790677929 created
+job.batch/postgres-backup-sa-test-1790677929 condition met
+Starting backup: demodb-20260929T103210Z-postgres-backup-sa-test-1790677929-zvknd.tar
+Backup completed: demodb-20260929T103210Z-postgres-backup-sa-test-1790677929-zvknd.tar
+Cleaning backups older than 10080 minutes
+Housekeeping completed
+NAME                                       SA                AUTOMOUNT
+postgres-backup-sa-test-1790677929-zvknd   postgres-backup   false
+

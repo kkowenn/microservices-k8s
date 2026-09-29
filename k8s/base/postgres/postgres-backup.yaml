@@ -37,9 +37,9 @@ spec:
 
       template:
         spec:
+          serviceAccountName: postgres-backup
           restartPolicy: Never
           automountServiceAccountToken: false
-
           containers:
           - name: postgres-backup
             image: postgres:16-alpine
