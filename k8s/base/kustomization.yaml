@@ -2,23 +2,23 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-- namespace.yaml
-- postgres/secret.yaml
-- postgres/init-configmap.yaml
-- postgres/statefulset.yaml
-- postgres/service.yaml
-- postgres/postgres-backup.yaml
-- api/deployment.yaml
-- api/service.yaml
-- web/deployment.yaml
-- web/service.yaml
-- nginx/configmap.yaml
-- nginx/deployment.yaml
-- nginx/service.yaml
-- ingress.yaml
-# sa: 
-- api/serviceaccount.yaml
-- web/serviceaccount.yaml
-- nginx/serviceaccount.yaml
-- postgres/serviceaccount.yaml
-- postgres/backup-serviceaccount.yaml
+  - namespace.yaml
+  - postgres/secret.yaml
+  - postgres/init-configmap.yaml
+  - postgres/statefulset.yaml
+  - postgres/service.yaml
+  - postgres/postgres-backup.yaml
+  - api/deployment.yaml
+  - api/service.yaml
+  - web/deployment.yaml
+  - web/service.yaml
+  - nginx/configmap.yaml
+  - nginx/deployment.yaml
+  - nginx/service.yaml
+  - ingress.yaml
+  # Service accounts
+  - api/serviceaccount.yaml
+  - web/serviceaccount.yaml
+  - nginx/serviceaccount.yaml
+  - postgres/serviceaccount.yaml
+  - postgres/backup-serviceaccount.yaml

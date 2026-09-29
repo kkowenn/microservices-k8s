@@ -18,17 +18,17 @@ spec:
       serviceAccountName: web
       automountServiceAccountToken: false
       containers:
-      - name: web
-        image: web:latest
-        ports:
-        - containerPort: 3000
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits:
-            cpu: 250m
-            memory: 256Mi
-        env:
-        - name: API_URL
-          value: "http://api.demo.svc.cluster.local"
+        - name: web
+          image: web:latest
+          ports:
+            - containerPort: 3000
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          env:
+            - name: API_URL
+              value: "http://api.demo.svc.cluster.local"
