@@ -7,14 +7,12 @@ resources:
   - postgres/init-configmap.yaml
   - postgres/statefulset.yaml
   - postgres/service.yaml
+  - postgres/postgres-backup.yaml
   - api/deployment.yaml
   - api/service.yaml
   - web/deployment.yaml
   - web/service.yaml
+  - nginx/configmap.yaml
+  - nginx/deployment.yaml
+  - nginx/service.yaml
   - ingress.yaml
-  - api/deployment.yaml
-  - api/service.yaml
-  - web/deployment.yaml
-  - web/service.yaml
-  - ingress.yaml
-

@@ -1,180 +1,84 @@
 # Microservices K8s
 
-A microservices project with Kubernetes (Kustomize) and ArgoCD GitOps deployment.
+Node.js frontend, Go API, NGINX gateway, and PostgreSQL on Kubernetes with Kustomize.
 
 ## Architecture
 
-```
-User Browser
-    │
-    ▼
-[ Ingress ] (demo.local)
-    │
-    ├── /      → [ Web Service ] → Node.js (port 3000)
-    │                  │
-    │             fetch('/api/items')
-    │                  │
-    └── /api/* → [ API Service ] → Go (port 8000)
-                       │
-                       ▼
-                [ PostgreSQL ] (port 5432)
-```
+![Kubernetes architecture diagram](diagram.png)
 
-## Services
+## Run locally
 
-| Service | Language | Port | Description |
-|---------|----------|------|-------------|
-| Web | Node.js 20 | 3000 | Frontend HTML UI |
-| API | Go 1.22 | 8000 | REST API with PostgreSQL |
-| PostgreSQL | 16-alpine | 5432 | Database for items |
+Start Docker Desktop (or Docker Engine on Linux). Run commands from the repository root.
+Choose Kind or Minikube; Docker Desktop's built-in Kubernetes is not required.
 
-## Prerequisites
-
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (with Kubernetes enabled)
-- [kubectl](https://kubernetes.io/docs/tasks/tools/)
-- [ArgoCD CLI](https://argo-cd.readthedocs.io/en/stable/cli_installation/) (optional)
-
-### Install on macOS
+### Kind
 
 ```bash
-# Install kubectl
-brew install kubectl
+brew install kubectl kind # macOS, if needed
+kind get clusters
 
-# Install ArgoCD CLI (optional)
-brew install argocd
+# Create only if a cluster named "kind" does not exist
+kind create cluster --name kind
 
-# Install kustomize (optional, kubectl has it built-in)
-brew install kustomize
+bash scripts/kind.sh
+kubectl --context=kind-kind -n demo-dev port-forward svc/nginx 3000:80
 ```
 
-### Install on Ubuntu/Debian
+### Minikube
 
 ```bash
-# kubectl
-sudo apt update
-sudo apt install -y apt-transport-https ca-certificates curl
-curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
-sudo apt update
-sudo apt install -y kubectl
-
-# Docker
-sudo apt install -y docker.io
-sudo systemctl enable --now docker
-sudo usermod -aG docker $USER
-
-# ArgoCD CLI (optional)
-curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
-chmod +x argocd
-sudo mv argocd /usr/local/bin/
-
-# kustomize (optional)
-curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
-sudo mv kustomize /usr/local/bin/
+brew install kubectl minikube # macOS, if needed
+bash scripts/minikube.sh
+kubectl --context=microservices-k8s -n demo-dev port-forward svc/nginx 3000:80
 ```
 
-### Enable Kubernetes (Docker Desktop)
+Open **http://localhost:3000**. API: **http://localhost:3000/api/items**.
+Keep port-forward running. Local access uses HTTP and needs no Ingress controller or ArgoCD.
 
-1. Open Docker Desktop
-2. Go to **Settings > Kubernetes**
-3. Check **Enable Kubernetes**
-4. Click **Apply & Restart**
-5. Verify: `kubectl cluster-info`
+Both scripts build and load images, deploy to `demo-dev`, and wait for readiness.
+Rerun your setup script after code changes. Kind was verified locally;
+Minikube is an alternative using 2 CPUs and 3 GiB of memory.
 
-## Quick Start
-
-### One-command setup
+## Check the app
 
 ```bash
-./scripts/setup.sh
+kubectl --context=kind-kind -n demo-dev get pods,pvc
+curl --fail http://localhost:3000/api/items
 ```
 
-This will: check prerequisites, build Docker images, deploy to K8s, install ArgoCD, and apply all configs.
+For Minikube, use `--context=microservices-k8s`.
+The API initially returns Item A, Item B, and Item C.
 
-### One-command cleanup
+## Backups
+
+The [backup manifest](k8s/base/postgres/postgres-backup.yaml) creates a separate
+backup PVC and a CronJob scheduled for 02:00 Bangkok time. It is suspended by
+default. Each run uses `pg_dump`, then removes completed backups older than
+7 days. Test backup and restore before enabling the schedule.
+
+## Stop or clean up
+
+Press **Ctrl+C** to stop port-forward. To pause Minikube:
 
 ```bash
-./scripts/cleanup.sh
+minikube stop -p microservices-k8s
 ```
 
-This will: remove all demo apps, namespaces, and optionally ArgoCD + Docker images.
-
-### Manual setup (step by step)
+To remove this app from Kind, including its database and backup volume claims/data:
 
 ```bash
-# 1. Build images
-docker build -t api:latest services/api/
-docker build -t web:latest services/web/
-
-# 2. Deploy dev environment
-kubectl apply -k k8s/overlays/dev
-kubectl get pods -n demo-dev
-
-# 3. Access the app
-kubectl port-forward svc/web 3000:80 -n demo-dev
-# Open http://localhost:3000
-
-# 4. Install ArgoCD (optional)
-kubectl create namespace argocd
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-kubectl wait --for=condition=available deployment/argocd-server -n argocd --timeout=300s
-
-# 5. Get ArgoCD password & access UI
-kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
-kubectl port-forward svc/argocd-server 8443:443 -n argocd
-# Open https://localhost:8443 (user: admin)
-
-# 6. Apply ArgoCD configs
-kubectl apply -f argocd/project.yaml
-kubectl apply -f argocd/app-dev.yaml
-kubectl apply -f argocd/app-staging.yaml
-kubectl apply -f argocd/app-prod.yaml
+kubectl --context=kind-kind delete namespace demo-dev
 ```
 
-## Project Structure
+## Project files
 
-```
-microservices-k8s/
-├── scripts/
-│   ├── setup.sh                # One-command setup
-│   └── cleanup.sh              # One-command teardown
-├── services/
-│   ├── api/                    # Go REST API
-│   │   ├── main.go
-│   │   ├── go.mod
-│   │   └── Dockerfile
-│   └── web/                    # Node.js frontend
-│       ├── server.js
-│       └── Dockerfile
-├── k8s/
-│   ├── base/                   # Shared K8s manifests
-│   │   ├── kustomization.yaml
-│   │   ├── namespace.yaml
-│   │   ├── api-deployment.yaml
-│   │   ├── api-service.yaml
-│   │   ├── web-deployment.yaml
-│   │   ├── web-service.yaml
-│   │   ├── ingress.yaml
-│   │   ├── postgres-deployment.yaml
-│   │   ├── postgres-service.yaml
-│   │   ├── postgres-secret.yaml
-│   │   ├── postgres-pvc.yaml
-│   │   └── postgres-init-configmap.yaml
-│   └── overlays/               # Environment-specific overrides
-│       ├── dev/                # 1 replica, local images
-│       ├── staging/            # 2 replicas, staging images
-│       └── prod/               # 3 replicas, versioned images
-└── argocd/                     # ArgoCD application configs
-    ├── project.yaml
-    ├── app-dev.yaml
-    ├── app-staging.yaml
-    └── app-prod.yaml
-```
+| Path | Purpose |
+|------|---------|
+| `services/` | Application code and Dockerfiles |
+| `k8s/base/` | Shared Kubernetes manifests |
+| `k8s/overlays/` | Local, dev, dev-cnpg, staging, and prod configuration |
+| `argocd/` | GitOps application definitions; separate from local setup |
+| `scripts/` | Setup, cleanup, and diagram generation |
 
-## Environments
-
-| Environment | Namespace | Replicas | Sync Policy |
-|-------------|-----------|----------|-------------|
-| Dev | demo-dev | 1 | Auto (prune + self-heal) |
-| Staging | demo-staging | 2 | Auto (prune + self-heal) |
-| Prod | demo-prod | 3 | Manual |
+See the [setup and operations guide](docs/setup.md) for troubleshooting,
+custom cluster names, ArgoCD configuration, and generated diagrams.

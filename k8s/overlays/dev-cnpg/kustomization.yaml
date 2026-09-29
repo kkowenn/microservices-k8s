@@ -9,7 +9,10 @@ resources:
 
 patches:
   # Use CNPG secret for API env vars instead of manual postgres-credentials
-  - path: ../../base/cnpg/api-env-patch.yaml
+  - path: api-env-patch.yaml
+    target:
+      kind: Deployment
+      name: api
   # Scale down for dev
   - target:
       kind: Deployment
@@ -21,6 +24,13 @@ patches:
   - target:
       kind: Deployment
       name: web
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  - target:
+      kind: Deployment
+      name: nginx
     patch: |
       - op: replace
         path: /spec/replicas

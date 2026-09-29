@@ -1,0 +1,76 @@
+demodb=# SELECT * FROM backup_test;
+ id | name | created_at 
+----+------+------------
+(0 rows)
+
+demodb=# INSERT INTO backup_test (name)
+demodb-# VALUES ('Alice'), ('Bob'), ('Charlie');
+INSERT 0 3
+demodb=# 
+demodb=# SELECT * FROM backup_test;
+ id |  name   |        created_at         
+----+---------+---------------------------
+  1 | Alice   | 2026-09-29 08:15:01.95346
+  2 | Bob     | 2026-09-29 08:15:01.95346
+  3 | Charlie | 2026-09-29 08:15:01.95346
+(3 rows)
+
+demodb=# 
+
+--- back up pod
+
+demodb=# \q
+postgres-0:/# ls
+bin                         lib                         product_uuid                sys
+dev                         media                       root                        tmp
+docker-entrypoint-initdb.d  mnt                         run                         usr
+etc                         opt                         sbin                        var
+home                        proc                        srv
+postgres-0:/# 
+
+--- back up postgres command:
+
+postgres-0:/# pg_dump -U demouser -d demodb -F t -f /tmp/demodb-backup.tar
+postgres-0:/# 
+postgres-0:/# cd /tmp/
+postgres-0:/tmp# ls
+demodb-backup.tar
+postgres-0:/tmp# ls -la demodb-backup.tar
+-rw-r--r--    1 root     root         13312 Sep 29 08:22 demodb-backup.tar
+postgres-0:/tmp# 
+
+
+--- add to k8s/base/postgres/postgres-backup.yaml
+--- after apply -k  k8s/base/postgres/postgres-backup.yaml
+--- test 
+
+─░▒▓    ~/De/p/microservices-k8s    feat/add-backup !11 ?10 ─── INT ✘  base   kind-kind 󱃾  16:53:37  ▓▒░─╮
+╰─ kubectl --context=kind-kind -n demo-dev rollout status \                                                         ─╯
+  statefulset/postgres --timeout=180s
+partitioned roll out complete: 1 new pods have been updated...
+
+╭─░▒▓    ~/De/project/microservices-k8s    feat/add-backup !11 ?10 ─ ✔  base   kind-kind 󱃾  16:53:37  ▓▒░─╮
+╰─ kubectl --context=kind-kind -n demo-dev get cronjobs                                                             ─╯
+NAME              SCHEDULE    TIMEZONE       SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+postgres-backup   0 2 * * *   Asia/Bangkok   True      0        <none>          4m23s
+
+╭─░▒▓    ~/Desktop/project/microservices-k8s    feat/add-backup !11 ?10 ────────── ✔  base   16:54:08  ▓▒░─╮
+╰─ backup_job="postgres-backup-test-$(date +%s)"                                                                    ─╯
+
+╭─░▒▓    ~/De/project/microservices-k8s    feat/add-backup !11 ?10 ─ ✔  base   kind-kind 󱃾  16:57:10  ▓▒░─╮
+╰─ kubectl --context=kind-kind -n demo-dev create job \                                                             ─╯
+  "$backup_job" --from=cronjob/postgres-backup
+job.batch/postgres-backup-test-1790675830 created
+
+╭─░▒▓    ~/De/project/microservices-k8s    feat/add-backup !11 ?10 ─ ✔  base   kind-kind 󱃾  16:57:13  ▓▒░─╮
+╰─ kubectl --context=kind-kind -n demo-dev wait \                                                                   ─╯
+  --for=condition=complete "job/$backup_job" --timeout=660s
+job.batch/postgres-backup-test-1790675830 condition met
+
+╭─░▒▓    ~/De/project/microservices-k8s    feat/add-backup !11 ?10 ─ ✔  base   kind-kind 󱃾  16:57:22  ▓▒░─╮
+╰─ kubectl --context=kind-kind -n demo-dev logs "job/$backup_job"                                                   ─╯
+Starting backup: demodb-20260929T095718Z-postgres-backup-test-1790675830-rx56m.tar
+Backup completed: demodb-20260929T095718Z-postgres-backup-test-1790675830-rx56m.tar
+Cleaning backups older than 10080 minutes
+Housekeeping completed
+
