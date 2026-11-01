@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: monitoring
+resources:
+  - alerts/prometheus-rule.yaml
+configMapGenerator:
+  - name: dashboard-api-overview
+    files: [api-overview.json=dashboards/api-overview.json]
+    options:
+      labels: {grafana_dashboard: '1'}
+      disableNameSuffixHash: true

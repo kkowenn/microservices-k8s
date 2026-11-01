@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-metrics
+  labels: {app: api, monitoring: demo-observability}
+spec:
+  type: ClusterIP
+  # Scrape running API pods even when database readiness fails.
+  publishNotReadyAddresses: true
+  selector: {app: api}
+  ports:
+    - name: metrics
+      port: 9090
+      targetPort: metrics
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: api
+  labels: {monitoring: demo-observability}
+spec:
+  jobLabel: app
+  selector:
+    matchLabels: {app: api, monitoring: demo-observability}
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s

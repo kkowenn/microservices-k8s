@@ -1,0 +1,84 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: demo-application
+  labels:
+    monitoring: demo-observability
+spec:
+  groups:
+  - name: demo.application
+    rules:
+    - alert: APIDown
+      expr: '(sum by (namespace) (up{service="api-metrics"}) == 0)
+
+        or ((kube_deployment_spec_replicas{deployment="api",namespace=~"demo-.*"} > 0)
+
+        unless on(namespace) up{service="api-metrics"})'
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: API metrics targets are unavailable or missing
+        runbook_url: https://github.com/kkowenn/microservices-k8s/blob/main/docs/runbook.md#apidown
+    - alert: APIHighErrorRate
+      expr: 'sum by (namespace, route) (rate(http_requests_total{service="api-metrics",status=~"5.."}[5m]))
+
+        / sum by (namespace, route) (rate(http_requests_total{service="api-metrics"}[5m])) > 0.05'
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: More than 5% of API requests are failing
+        runbook_url: https://github.com/kkowenn/microservices-k8s/blob/main/docs/runbook.md#apihigherrorrate
+    - alert: APIHighLatencyP95
+      expr: histogram_quantile(0.95, sum by (namespace, le) (rate(http_request_duration_seconds_bucket{service="api-metrics"}[5m])))
+        > 0.3
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: API p95 latency exceeds 300ms
+        runbook_url: https://github.com/kkowenn/microservices-k8s/blob/main/docs/runbook.md#apihighlatencyp95
+    - alert: DatabaseDown
+      expr: '(pg_up{service="postgres-exporter"} == 0) or (up{service="postgres-exporter"} == 0)
+
+        or ((kube_statefulset_replicas{statefulset="postgres",namespace=~"demo-.*"} > 0)
+
+        unless on(namespace) up{service="postgres-exporter"})'
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: PostgreSQL or its exporter is unavailable
+        runbook_url: https://github.com/kkowenn/microservices-k8s/blob/main/docs/runbook.md#databasedown
+    - alert: DBPoolSaturated
+      expr: '(go_sql_in_use_connections{service="api-metrics"} / go_sql_max_open_connections{service="api-metrics"}
+        >= 0.9)
+
+        and (rate(go_sql_wait_count_total{service="api-metrics"}[5m]) > 0)'
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: API database pool is busy and requests are waiting
+        runbook_url: https://github.com/kkowenn/microservices-k8s/blob/main/docs/runbook.md#dbpoolsaturated
+    - alert: GatewayUnavailable
+      expr: '(probe_success{service="gateway-probe"} == 0) or (up{service="gateway-probe"} == 0)
+
+        or ((kube_deployment_spec_replicas{deployment="gateway-probe",namespace=~"demo-.*"} > 0)
+
+        unless on(namespace) up{service="gateway-probe"})'
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: Gateway cannot serve the items endpoint
+        runbook_url: https://github.com/kkowenn/microservices-k8s/blob/main/docs/runbook.md#gatewayunavailable
+    - alert: PodCrashLooping
+      expr: increase(kube_pod_container_status_restarts_total{namespace=~"demo-.*",container!=""}[15m]) > 3
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: Application container restarted repeatedly
+        runbook_url: https://github.com/kkowenn/microservices-k8s/blob/main/docs/runbook.md#podcrashlooping

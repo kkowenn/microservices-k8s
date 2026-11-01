@@ -8,5 +8,5 @@ RUN go build -o api .
 FROM alpine:3.20
 WORKDIR /app
 COPY --from=build /app/api .
-EXPOSE 8000
+EXPOSE 8000 9090
 CMD ["./api"]

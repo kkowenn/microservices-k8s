@@ -1,0 +1,129 @@
+# Local learning profile; review storage and capacity for shared deployments.
+fullnameOverride: monitoring
+prometheus:
+  prometheusSpec:
+    retention: 3d
+    retentionSize: 4GB
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector:
+      matchLabels:
+        monitoring: demo-observability
+    serviceMonitorNamespaceSelector: {}
+    ruleSelectorNilUsesHelmValues: false
+    ruleSelector:
+      matchLabels:
+        monitoring: demo-observability
+    ruleNamespaceSelector: {}
+    probeSelector:
+      matchLabels:
+        monitoring: demo-observability
+    probeNamespaceSelector: {}
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        memory: 1Gi
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+          - ReadWriteOnce
+          resources:
+            requests:
+              storage: 5Gi
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeProxy:
+  enabled: false
+grafana:
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+  persistence:
+    enabled: true
+    size: 1Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      labelValue: '1'
+      searchNamespace: monitoring
+  additionalDataSources:
+  - name: Loki
+    uid: loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    jsonData:
+      maxLines: 1000
+  grafana.ini:
+    auth.anonymous:
+      enabled: false
+  defaultDashboardsEnabled: false
+  serviceMonitor:
+    labels:
+      monitoring: demo-observability
+alertmanager:
+  config:
+    route:
+      receiver: 'null'
+      group_by:
+      - alertname
+      - namespace
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+      routes: []
+    receivers:
+    - name: 'null'
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 25m
+        memory: 64Mi
+      limits:
+        memory: 256Mi
+    storage:
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+          - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi
+prometheus-node-exporter:
+  hostRootFsMount:
+    enabled: false
+  hostNetwork: false
+  hostPID: false
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      memory: 128Mi
+  prometheus:
+    monitor:
+      additionalLabels:
+        monitoring: demo-observability
+commonLabels:
+  monitoring: demo-observability
+defaultRules:
+  create: false
+kube-state-metrics:
+  prometheus:
+    monitor:
+      additionalLabels:
+        monitoring: demo-observability

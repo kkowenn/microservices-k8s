@@ -13,7 +13,7 @@ for tool in docker minikube kubectl; do
 done
 docker info >/dev/null
 
-minikube start -p "$PROFILE" --driver=docker --cpus=2 --memory=3072 --keep-context
+minikube start -p "$PROFILE" --driver=docker --cpus="${MINIKUBE_CPUS:-2}" --memory="${MINIKUBE_MEMORY:-3072}" --keep-context
 docker build -t api:local "$PROJECT_DIR/services/api"
 docker build -t web:local "$PROJECT_DIR/services/web"
 minikube -p "$PROFILE" image load --overwrite=true api:local web:local

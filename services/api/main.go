@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -28,7 +28,10 @@ type database interface {
 	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
 }
 
-type application struct{ db database }
+type application struct {
+	db        database
+	telemetry *telemetry
+}
 
 type Item struct {
 	ID   int    `json:"id"`
@@ -41,8 +44,10 @@ type HealthResponse struct {
 }
 
 func main() {
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 	if err := run(); err != nil {
-		log.Fatal(err)
+		slog.Error("API stopped", "error", err)
+		os.Exit(1)
 	}
 }
 
@@ -62,7 +67,8 @@ func run() error {
 	db.SetMaxIdleConns(5)
 	db.SetConnMaxLifetime(5 * time.Minute)
 
-	app := application{db: db}
+	metrics := newTelemetry(db)
+	app := application{db: db, telemetry: metrics}
 	server := &http.Server{
 		Addr:              ":" + getEnv("PORT", "8000"),
 		Handler:           app.routes(),
@@ -70,6 +76,10 @@ func run() error {
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      15 * time.Second,
 		IdleTimeout:       60 * time.Second,
+	}
+	metricsServer := &http.Server{
+		Addr: ":" + getEnv("METRICS_PORT", "9090"), Handler: metrics.handler(),
+		ReadHeaderTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second,
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -79,13 +89,18 @@ func run() error {
 		<-ctx.Done()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		if err := server.Shutdown(shutdownCtx); err != nil {
-			log.Printf("HTTP shutdown: %v", err)
-			server.Close()
+		for _, srv := range []*http.Server{server, metricsServer} {
+			if err := srv.Shutdown(shutdownCtx); err != nil {
+				slog.Error("HTTP shutdown", "error", err)
+				srv.Close()
+			}
 		}
 	}()
-	log.Printf("API service running on %s", server.Addr)
-	err = server.ListenAndServe()
+	slog.Info("API started", "address", server.Addr, "metrics_address", metricsServer.Addr)
+	serverErrors := make(chan error, 2)
+	go func() { serverErrors <- metricsServer.ListenAndServe() }()
+	go func() { serverErrors <- server.ListenAndServe() }()
+	err = <-serverErrors
 	stop()
 	<-shutdownDone
 	if errors.Is(err, http.ErrServerClosed) {
@@ -127,7 +142,11 @@ func (app application) routes() http.Handler {
 	})
 	mux.HandleFunc("GET /readyz", app.healthHandler)
 	mux.HandleFunc("GET /health", app.healthHandler) // Backwards-compatible readiness alias.
-	mux.HandleFunc("GET /api/items", app.itemsHandler)
+	items := http.Handler(http.HandlerFunc(app.itemsHandler))
+	if app.telemetry != nil {
+		items = app.telemetry.instrument("/api/items", items)
+	}
+	mux.Handle("GET /api/items", items)
 	return mux
 }
 
@@ -146,7 +165,7 @@ func (app application) itemsHandler(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	rows, err := app.db.QueryContext(ctx, "SELECT id, name FROM items ORDER BY id")
 	if err != nil {
-		log.Printf("Error querying items: %v", err)
+		slog.ErrorContext(r.Context(), "database query failed", "request_id", requestID(r.Context()), "error", err)
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "database query failed"})
 		return
 	}
@@ -172,6 +191,6 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(value); err != nil {
-		log.Printf("Error writing response: %v", err)
+		slog.Error("response encoding failed", "error", err)
 	}
 }

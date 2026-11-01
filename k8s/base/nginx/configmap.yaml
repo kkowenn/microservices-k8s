@@ -18,6 +18,9 @@ data:
         return 200 "ok\n";
       }
 
+      # Metrics are served on a separate API listener and are never public.
+      location = /metrics { return 404; }
+
       location /api/ {
         proxy_pass http://api;
         proxy_http_version 1.1;

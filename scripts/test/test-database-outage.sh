@@ -4,6 +4,11 @@ set -euo pipefail
 : "${KUBE_CONTEXT:?Set KUBE_CONTEXT to an explicit test cluster context}"
 : "${NAMESPACE:?Set NAMESPACE to an isolated test namespace}"
 OUTAGE_TEST_PORT="${OUTAGE_TEST_PORT:-18000}"
+OUTAGE_METRICS_PORT="${OUTAGE_METRICS_PORT:-18001}"
+OUTAGE_HOLD_SECONDS="${OUTAGE_HOLD_SECONDS:-45}"
+[[ "$OUTAGE_HOLD_SECONDS" =~ ^[0-9]+$ ]] && (( OUTAGE_HOLD_SECONDS >= 45 && OUTAGE_HOLD_SECONDS <= 1800 )) || {
+  echo "OUTAGE_HOLD_SECONDS must be an integer between 45 and 1800" >&2; exit 1;
+}
 kube=(kubectl --context="$KUBE_CONTEXT" -n "$NAMESPACE")
 replicas=$("${kube[@]}" get statefulset/postgres -o jsonpath='{.spec.replicas}')
 [[ "$replicas" == 1 ]] || { echo "Expected one standalone PostgreSQL instance" >&2; exit 1; }
@@ -23,7 +28,7 @@ cleanup() {
   rm -f "$log"
 }
 trap cleanup EXIT
-"${kube[@]}" port-forward --address=127.0.0.1 "pod/$api_pod" "$OUTAGE_TEST_PORT:8000" >"$log" 2>&1 &
+"${kube[@]}" port-forward --address=127.0.0.1 "pod/$api_pod" "$OUTAGE_TEST_PORT:8000" "$OUTAGE_METRICS_PORT:9090" >"$log" 2>&1 &
 forward_pid=$!
 base="http://127.0.0.1:$OUTAGE_TEST_PORT"
 ready=false
@@ -38,7 +43,8 @@ stopped=true
 "${kube[@]}" scale statefulset/postgres --replicas=0
 "${kube[@]}" wait --for=delete pod/postgres-0 --timeout=90s
 # Span more than three liveness probe periods to catch a restart regression.
-for attempt in {1..9}; do
+for (( attempt=0; attempt<(OUTAGE_HOLD_SECONDS+4)/5; attempt++ )); do
+  curl -fsS --max-time 8 "http://127.0.0.1:$OUTAGE_METRICS_PORT/metrics" >/dev/null
   [[ $(curl -sS --max-time 8 -o /dev/null -w '%{http_code}' "$base/livez") == 200 ]]
   [[ $(curl -sS --max-time 8 -o /dev/null -w '%{http_code}' "$base/readyz") == 503 ]]
   [[ $(curl -sS --max-time 8 -o /dev/null -w '%{http_code}' "$base/api/items") == 503 ]]

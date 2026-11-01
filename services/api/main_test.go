@@ -63,7 +63,7 @@ func testApp(t *testing.T, mode string) application {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { db.Close() })
-	return application{db}
+	return application{db: db}
 }
 
 func TestHealthDuringDatabaseOutage(t *testing.T) {

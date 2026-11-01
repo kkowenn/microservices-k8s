@@ -1,0 +1,19 @@
+fullnameOverride: postgres-exporter
+config:
+  datasource:
+    host: postgres
+    port: '5432'
+    database: demodb
+    user: metrics_reader
+    passwordSecret:
+      name: postgres-monitoring-credentials
+      key: password
+    sslmode: disable
+serviceMonitor:
+  enabled: true
+  labels: {monitoring: demo-observability}
+  interval: 15s
+  timeout: 10s
+resources:
+  requests: {cpu: 25m, memory: 32Mi}
+  limits: {memory: 128Mi}

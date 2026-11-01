@@ -112,3 +112,10 @@ kubectl --context=kind-kind delete namespace demo-dev
 
 See the [setup and operations guide](docs/setup.md) for troubleshooting,
 custom cluster names, ArgoCD configuration, and generated diagrams.
+
+## Observability (optional)
+
+[Install and validate monitoring](docs/monitoring.md) for API/database metrics,
+Grafana dashboards, Loki logs via Alloy, and tested alerts with
+[runbooks](docs/runbook.md). Additional cluster resources and separate credentials
+are required; normal app deployments do not need monitoring CRDs.

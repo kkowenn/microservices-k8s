@@ -1,0 +1,17 @@
+# Optional: requires alertmanager-slack Secret with key url in monitoring.
+alertmanager:
+  alertmanagerSpec:
+    secrets: [alertmanager-slack]
+  config:
+    route:
+      receiver: slack
+      group_by: [alertname, namespace]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+    receivers:
+      - name: slack
+        slack_configs:
+          - api_url_file: /etc/alertmanager/secrets/alertmanager-slack/url
+            channel: '#alerts'
+            send_resolved: true
