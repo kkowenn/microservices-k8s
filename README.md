@@ -115,7 +115,79 @@ custom cluster names, ArgoCD configuration, and generated diagrams.
 
 ## Observability (optional)
 
-[Install and validate monitoring](docs/monitoring.md) for API/database metrics,
-Grafana dashboards, Loki logs via Alloy, and tested alerts with
-[runbooks](docs/runbook.md). Additional cluster resources and separate credentials
-are required; normal app deployments do not need monitoring CRDs.
+Add Prometheus metrics, Grafana dashboards, Loki logs through Alloy, and alerts.
+Normal application deployments do not require this stack.
+
+### 1. Prepare the cluster
+
+Install Helm 3, kubectl, and Python 3. Allocate at least **4 CPUs, 8 GiB RAM,
+and 20 GiB free disk** to Docker/the cluster; VFS storage can require more disk.
+Deploy the app using the Kind instructions above. For Minikube, use:
+
+```bash
+MINIKUBE_CPUS=4 MINIKUBE_MEMORY=8192 bash scripts/minikube.sh
+```
+
+Existing databases need the [credential migration](docs/setup.md#database-credentials-and-existing-installations)
+before upgrading. This quick-start targets standalone PostgreSQL, not CNPG.
+
+### 2. Create private monitoring credentials
+
+Run from the repository root. For Minikube, set `KUBE_CONTEXT=microservices-k8s`.
+Passwords are generated outside the checkout and are never committed.
+
+```bash
+export KUBE_CONTEXT=kind-kind
+export APP_NAMESPACE=demo-dev
+credentials_dir=$(mktemp -d)
+chmod 700 "$credentials_dir"
+python3 - "$credentials_dir" <<'PYTHON'
+from pathlib import Path
+import os, secrets, sys
+for name in ('grafana-password', 'postgres-monitoring-password'):
+    path = Path(sys.argv[1]) / name
+    path.write_text(secrets.token_urlsafe(32))
+    os.chmod(path, 0o600)
+PYTHON
+kubectl --context="$KUBE_CONTEXT" create namespace monitoring --dry-run=client -o yaml |
+  kubectl --context="$KUBE_CONTEXT" apply -f -
+kubectl --context="$KUBE_CONTEXT" -n monitoring create secret generic grafana-admin \
+  --from-literal=admin-user=admin \
+  --from-file="admin-password=$credentials_dir/grafana-password" \
+  --dry-run=client -o yaml |
+  kubectl --context="$KUBE_CONTEXT" -n monitoring apply --server-side -f -
+bash scripts/monitoring/create-db-monitoring-role.sh "$credentials_dir/postgres-monitoring-password"
+```
+
+Save the generated Grafana password in your password manager before removing the
+private temporary directory. The exporter receives its own monitoring role and
+password, separate from the application and administrator credentials.
+
+### 3. Install and open Grafana
+
+```bash
+bash scripts/monitoring/install.sh
+kubectl --context="$KUBE_CONTEXT" -n monitoring port-forward --address=127.0.0.1 svc/monitoring-grafana 3001:80
+```
+
+Open **http://localhost:3001**. Sign in as **admin** with the password in
+`$credentials_dir/grafana-password`, then open
+**Microservices — API, database and logs** and select your application namespace.
+Keep port-forward running. Rate and latency panels need several scrapes to fill.
+
+### 4. Verify the stack
+
+In another terminal, set the same `KUBE_CONTEXT` and `APP_NAMESPACE`, then run:
+
+```bash
+python3 scripts/test/test-monitoring.py
+```
+
+This checks scrape targets, database/gateway availability, API and pool metrics,
+Loki log ingestion, and Grafana provisioning. External notifications are disabled
+by default. Metrics stay internal and are not exposed through the public gateway.
+
+See the [monitoring guide](docs/monitoring.md) for storage, network-policy
+requirements, notification setup, validation, and removal, and the
+[alert runbooks](docs/runbook.md) for troubleshooting. Run the database outage
+exercise only in an isolated test namespace; it intentionally stops PostgreSQL.
