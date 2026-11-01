@@ -1,10 +1,26 @@
-# Microservices K8s
+# Microservices K8s + monitoring
 
 Node.js frontend, Go API, NGINX gateway, and PostgreSQL on Kubernetes with Kustomize.
 
 ## Architecture
 
 ![Kubernetes architecture diagram](diagram.png)
+
+# Monitoring Dashboard
+
+![Grafana Dashboard](dashboard.png)
+
+| Panel | Description |
+| ----- | ----------- |
+| 1. Gateway Health | Checks whether the Gateway health probe succeeds (UP/DOWN). |
+| 2. API Scrape Status | Checks whether Prometheus can successfully collect API metrics. |
+| 3. App Restarts (15m) | Shows the number of container restarts in the last 15 minutes. |
+| 4. HTTP Request Rate | Measures the average number of HTTP requests per second (RPS). |
+| 5. HTTP 5xx Error Rate | Shows the percentage of HTTP requests that return server errors (5xx). |
+| 6. API p95 Latency | Estimates the response time within which 95% of API requests complete. |
+| 7. Database Pool Connections | Monitors active, open, and maximum allowed database connections in the API pool. |
+| 8. CPU Usage by Pod | Shows CPU consumption for each Kubernetes Pod in cores or millicores. |
+| 9. Memory Usage by Pod | Shows memory working-set usage for each Kubernetes Pod in MiB/GiB. |
 
 ## Run locally
 
@@ -50,6 +66,8 @@ For Minikube, use `--context=microservices-k8s`.
 The API initially returns Item A, Item B, and Item C.
 
 ## Development checks
+
+![ns-demapp.png](ns-demapp.png)
 
 Go API tests, frontend security regressions, manifest assertions, and Kind
 smoke, backup/restore, and database outage checks run in [CI](.github/workflows/ci.yaml).
@@ -102,13 +120,13 @@ kubectl --context=kind-kind delete namespace demo-dev
 
 ## Project files
 
-| Path | Purpose |
-|------|---------|
-| `services/` | Application code and Dockerfiles |
-| `k8s/base/` | Shared Kubernetes manifests |
-| `k8s/overlays/` | Local, dev, dev-cnpg, staging, and prod configuration |
-| `argocd/` | GitOps application definitions; separate from local setup |
-| `scripts/` | Setup, cleanup, and diagram generation |
+| Path              | Purpose                                                   |
+| ----------------- | --------------------------------------------------------- |
+| `services/`     | Application code and Dockerfiles                          |
+| `k8s/base/`     | Shared Kubernetes manifests                               |
+| `k8s/overlays/` | Local, dev, dev-cnpg, staging, and prod configuration     |
+| `argocd/`       | GitOps application definitions; separate from local setup |
+| `scripts/`      | Setup, cleanup, and diagram generation                    |
 
 See the [setup and operations guide](docs/setup.md) for troubleshooting,
 custom cluster names, ArgoCD configuration, and generated diagrams.
@@ -191,3 +209,86 @@ See the [monitoring guide](docs/monitoring.md) for storage, network-policy
 requirements, notification setup, validation, and removal, and the
 [alert runbooks](docs/runbook.md) for troubleshooting. Run the database outage
 exercise only in an isolated test namespace; it intentionally stops PostgreSQL.
+
+### Resource of Kube's Monitoring
+
+![ns-monitoring.png](ns-monitoring.png)
+
+---
+
+After starting Minikube and deploying the application and monitoring stack, use `kubectl port-forward` to access services from your browser.
+
+Run each command in a **separate terminal**.
+
+**1. Application (NGINX, terminal 1)**
+
+```Shell
+minikube -p microservices-k8s kubectl -- \
+  -n demo-dev port-forward svc/nginx 3000:80
+```
+
+**2. Prometheus (terminal 2)**
+
+```Shell
+minikube -p microservices-k8s kubectl -- \
+  -n monitoring port-forward svc/monitoring-prometheus 9091:9090
+```
+
+**3. Grafana (terminal 3)**
+
+```Shell
+minikube -p microservices-k8s kubectl -- \
+  -n monitoring port-forward svc/monitoring-grafana 3001:80
+```
+
+**Local Access URLs**
+
+| Service    | URL                                           | Purpose                 |
+| ---------- | --------------------------------------------- | ----------------------- |
+| NGINX      | [http://localhost:3000](http://localhost:3000) | Application entry point |
+| Prometheus | [http://localhost:9091](http://localhost:9091) | Metrics & PromQL        |
+| Grafana    | [http://localhost:3001](http://localhost:3001) | Monitoring dashboards   |
+
+> **Note:** Port forwarding runs only while the terminal session remains active. Press `Ctrl+C` to stop. These endpoints are accessible locally and do not require exposing services externally.
+
+One small improvement: you can use `kubectl` directly with the correct Minikube context if it's already configured, making the commands shorter:
+
+```Shell
+kubectl -n demo-dev port-forward svc/nginx 3000:80
+kubectl -n monitoring port-forward svc/monitoring-prometheus 9091:9090
+kubectl -n monitoring port-forward svc/monitoring-grafana 3001:80
+```
+
+example:
+
+- demo-app:
+
+![forwardport_nginx.png](forwardport_nginx.png)
+
+- monitoring:
+
+![forwardport_prometheus.png](forwardport_prometheus.png)
+
+![forwardport_grafana.png](forwardport_grafana.png)
+
+
+---
+### Grafana Admin Login
+
+Retrieve the Grafana admin password from the Kubernetes Secret:
+
+```bash
+minikube -p microservices-k8s kubectl -- \
+  -n monitoring get secret grafana-admin \
+  -o jsonpath='{.data.admin-password}' | base64 -d
+echo
+```
+
+Open **http://localhost:3001** and sign in:
+
+| Field | Value |
+|---|---|
+| Username | `admin` |
+| Password | Output from the command above |
+
+> **Note:** The password is stored as a Base64-encoded value in a Kubernetes Secret. Avoid committing credentials or command output to Git.
