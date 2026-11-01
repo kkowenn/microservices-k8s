@@ -22,6 +22,8 @@ Node.js frontend, Go API, NGINX gateway, and PostgreSQL on Kubernetes with Kusto
 | 8. CPU Usage by Pod | Shows CPU consumption for each Kubernetes Pod in cores or millicores. |
 | 9. Memory Usage by Pod | Shows memory working-set usage for each Kubernetes Pod in MiB/GiB. |
 
+[Final Grafana Dashboard JSON](App-Health-demo-dev-Final.json)
+
 ## Run locally
 
 Start Docker Desktop (or Docker Engine on Linux). Run commands from the repository root.
