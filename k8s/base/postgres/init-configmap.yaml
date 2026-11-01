@@ -6,12 +6,23 @@ metadata:
   labels:
     app: postgres
 data:
-  init.sql: |
-    CREATE TABLE IF NOT EXISTS items (
+  init.sh: |
+    #!/bin/sh
+    set -eu
+    # psql quotes identifiers and values; credentials never become SQL fragments.
+    psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --set ON_ERROR_STOP=1 <<'SQL'
+    \getenv app_user APP_DATABASE_USER
+    \getenv app_password APP_DATABASE_PASSWORD
+    CREATE ROLE :"app_user" LOGIN PASSWORD :'app_password'
+      NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+    REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+    CREATE TABLE items (
       id SERIAL PRIMARY KEY,
       name VARCHAR(255) NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
-
-    INSERT INTO items (name) VALUES ('Item A'), ('Item B'), ('Item C')
-    ON CONFLICT DO NOTHING;
+    INSERT INTO items (name) VALUES ('Item A'), ('Item B'), ('Item C');
+    GRANT USAGE ON SCHEMA public TO :"app_user";
+    GRANT SELECT ON TABLE items TO :"app_user";
+    GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO :"app_user";
+    SQL

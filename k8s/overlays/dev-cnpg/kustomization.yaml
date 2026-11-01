@@ -8,6 +8,8 @@ resources:
   - ../../base/cnpg
 
 patches:
+  # CNPG replaces the standalone database and its backup path entirely.
+  - path: remove-standalone.yaml
   # Use CNPG secret for API env vars instead of manual postgres-credentials
   - path: api-env-patch.yaml
     target:

@@ -49,6 +49,14 @@ curl --fail http://localhost:3000/api/items
 For Minikube, use `--context=microservices-k8s`.
 The API initially returns Item A, Item B, and Item C.
 
+## Development checks
+
+Go API tests, frontend security regressions, manifest assertions, and Kind
+smoke, backup/restore, and database outage checks run in [CI](.github/workflows/ci.yaml).
+See [regression commands and credential migration](docs/setup.md#database-credentials-and-existing-installations)
+before upgrading an existing database. Only the local overlay ships demo secrets;
+shared environments require separate admin and restricted application credentials.
+
 ## Backups
 
 The [backup manifest](k8s/base/postgres/postgres-backup.yaml) creates a separate

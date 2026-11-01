@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 echo "========================================="
 echo "  Microservices K8s - Create Secrets"
@@ -105,39 +105,13 @@ echo "========================================="
 echo "  [2/2] PostgreSQL Secret"
 echo "========================================="
 echo ""
-echo "This creates/updates the postgres-credentials secret."
-echo "Default values: demouser / demopass / demodb"
-echo ""
-
-read -p "Set up PostgreSQL secret? (y/N): " setup_pg
+echo "Database setup requires separate admin and application credential files."
+read -r -p "Set up PostgreSQL secrets? (y/N): " setup_pg
 if [[ "$setup_pg" == "y" || "$setup_pg" == "Y" ]]; then
-
-  read -p "PostgreSQL username [demouser]: " PG_USER
-  PG_USER="${PG_USER:-demouser}"
-
-  read -sp "PostgreSQL password [demopass]: " PG_PASS
-  PG_PASS="${PG_PASS:-demopass}"
-  echo ""
-
-  read -p "PostgreSQL database [demodb]: " PG_DB
-  PG_DB="${PG_DB:-demodb}"
-
-  # Create namespace if needed
-  kubectl create namespace "$NAMESPACE" 2>/dev/null || true
-
-  # Create the secret
-  kubectl create secret generic postgres-credentials \
-    --namespace="$NAMESPACE" \
-    --from-literal=POSTGRES_USER="$PG_USER" \
-    --from-literal=POSTGRES_PASSWORD="$PG_PASS" \
-    --from-literal=POSTGRES_DB="$PG_DB" \
-    --dry-run=client -o yaml | kubectl apply -f -
-
-  echo ""
-  echo "  PostgreSQL secret created in namespace: $NAMESPACE"
-  echo "    User: $PG_USER"
-  echo "    DB:   $PG_DB"
-  echo ""
+  read -r -p "Explicit kubectl context: " DB_CONTEXT
+  read -r -p "Admin credential env-file path: " DB_ADMIN_FILE
+  read -r -p "Application credential env-file path: " DB_APP_FILE
+  bash "$(dirname "$0")/create-db-secrets.sh" "$DB_CONTEXT" "$NAMESPACE" "$DB_ADMIN_FILE" "$DB_APP_FILE"
 fi
 
 echo "========================================="

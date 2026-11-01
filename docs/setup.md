@@ -259,3 +259,113 @@ sudo apt install graphviz
 | `docs/diagrams/staging.png` | Staging overlay (2 replicas) |
 | `docs/diagrams/prod.png` | Prod overlay (3 replicas) |
 | `docs/diagrams/dev-cnpg.png` | Dev with CloudNativePG (requires CRDs) |
+
+## Database credentials and existing installations
+
+Only `k8s/overlays/local` includes demo credentials. The shared base and the
+`dev`, `staging`, and `prod` overlays deliberately contain no Secret values.
+Before deploying a standalone database in those environments, provision two
+Secrets in the target namespace using your secret manager or:
+
+```bash
+bash scripts/create-db-secrets.sh CONTEXT NAMESPACE /secure/admin.env /secure/app.env
+```
+
+Keep both files outside the checkout and restrict file permissions to the owner
+(`chmod 600`). Each file must contain `POSTGRES_USER`, `POSTGRES_PASSWORD`, and
+`POSTGRES_DB`. Choose distinct administrator and application usernames, strong
+independent passwords, and the same database name in both files. There are no
+password defaults in the helper. It uses an explicit context and does not print
+values or save a client-side last-applied copy of the Secret.
+
+For **new volumes**, PostgreSQL initializes with `postgres-admin-credentials`,
+then creates the role from `postgres-credentials` without superuser, role creation,
+or database creation privileges. The API and backup job use that application role,
+which receives only schema usage and SELECT access to the items table and its
+sequence. Database administration uses the separate admin Secret. Credential
+values already committed in Git must be considered public and rotated wherever
+previously used; deleting the file does not remove Git history.
+
+**Existing volumes require an explicit migration.** Initialization scripts run
+only for an empty data directory. Updating a Kubernetes Secret does not create a
+role, change a password, or remove the old superuser privilege in PostgreSQL.
+Before applying these changes to an existing namespace:
+
+1. Take and verify a backup with the current credentials. If multiple independent
+   PostgreSQL pods already contain data, inspect and reconcile each database;
+   scaling down cannot merge their contents. Preserve their PVCs.
+2. During a maintenance window, use the existing database administrator to create
+   the new administrator and application roles, set their passwords securely,
+   and grant the application CONNECT, schema USAGE, and SELECT on `items` and
+   `items_id_seq`. The application role must have NOSUPERUSER, NOCREATEDB,
+   NOCREATEROLE, NOREPLICATION, and NOBYPASSRLS. Use a new role name if the old
+   application role owns the database or is the bootstrap superuser.
+3. Provision matching admin/app Secrets in that namespace, then deploy. Ensure
+   the admin Secret names the existing database and a working administrator.
+   Restart the API and PostgreSQL pods in a controlled rollout to refresh their
+   environment variables. Verify reads and backup/restore, then revoke or rotate
+   the old application credentials after checking ownership and dependencies.
+
+Do not delete the namespace, cluster, or PVCs to apply this migration. The local
+Secret values are for disposable development data only. A newly created local
+volume uses `postgres` as administrator and `demouser` as a SELECT-only app role.
+The standalone StatefulSet stays at one instance in every overlay; use an
+operator such as CNPG when replication and failover are needed.
+
+The API requires explicit `DATABASE_USER`, `DATABASE_PASSWORD`, and
+`DATABASE_NAME`. Connections have a five-second connection timeout; readiness
+checks have a two-second deadline and queries a five-second deadline.
+`/livez` checks HTTP process health independently of PostgreSQL, `/readyz` checks
+the database, and `/health` remains a readiness alias. A database outage makes
+pods unready without triggering liveness restarts. For PostgreSQL deployments
+with TLS, configure `DATABASE_SSLMODE=verify-full` and mount the appropriate CA
+trust in the API container; the local demo uses unencrypted cluster traffic.
+
+## CloudNativePG development overlay
+
+`dev-cnpg` replaces the standalone StatefulSet, Service, initialization ConfigMap,
+backup CronJob, backup PVC, and their service accounts. It does not run a second
+standalone database or back up an obsolete database endpoint. CNPG generates
+`cnpg-cluster-app` for the API. Seed SQL runs in the application database via
+`postInitApplicationSQL` and grants table SELECT to the application owner.
+Install the CNPG operator before using this overlay, and configure its own
+backup/recovery destination before relying on it for durable workloads. Automated
+CNPG backup is deliberately not supplied by the standalone `pg_dump` CronJob.
+Changing overlays does not migrate existing PostgreSQL data to CNPG.
+
+## Regression checks
+
+```bash
+(cd services/api && go test -race -count=1 ./... && go vet ./...)
+node --test services/web/*.test.js
+python3 -m pip install -r tests/requirements.txt
+python3 -m unittest discover -s tests -v
+```
+
+The manifest tests require `kubectl` on PATH (or set `KUBECTL` to its path).
+CI runs these checks plus a fresh Kind deployment, gateway/API smoke checks,
+backup/restore, and database outage/recovery. To run the integration checks against an isolated
+local/test namespace:
+
+```bash
+KUBE_CONTEXT=kind-kind NAMESPACE=demo-dev bash scripts/test/smoke.sh
+KUBE_CONTEXT=kind-kind NAMESPACE=demo-dev bash scripts/test/test-backup-job.sh
+KUBE_CONTEXT=kind-kind NAMESPACE=demo-dev bash scripts/test/test-database-outage.sh
+```
+
+The outage test temporarily scales PostgreSQL to zero in the explicitly named
+test namespace, checks HTTP liveness, failed readiness, bounded query failures,
+and unchanged API restart counts, then restores PostgreSQL and compares items.
+It attempts to restore the original replica count on failure too. Run it only
+in an isolated test namespace; it intentionally interrupts database availability.
+
+The backup test fails if the Job fails or no completed backup is reported. It
+reads the archive from that Job, restores into a unique scratch database using
+the separate administrator Secret, and compares item IDs and names with the
+source. It removes its Job, restore Pod, and scratch database afterward, while
+retaining the generated backup. Run this in a quiescent test database; concurrent
+writes can legitimately make the source differ from the backup. A forced Pod
+termination can leave the uniquely named `restore_check_*` scratch database for
+an administrator to remove. This test requires Python 3 and never restores over
+the application database. Prove recovery and configure independent durable backup
+storage before enabling the CronJob schedule in a real environment.

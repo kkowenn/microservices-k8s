@@ -7,7 +7,8 @@ metadata:
     app: postgres
 spec:
   serviceName: postgres
-  replicas: 2
+  replicas: 1
+  # Independent PostgreSQL instances are not replicas; use CNPG for HA.
   selector:
     matchLabels:
       app: postgres
@@ -25,7 +26,18 @@ spec:
             - containerPort: 5432
           envFrom:
             - secretRef:
-                name: postgres-credentials
+                name: postgres-admin-credentials
+          env:
+            - name: APP_DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_USER
+            - name: APP_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_PASSWORD
           resources:
             requests:
               cpu: 100m
@@ -41,12 +53,12 @@ spec:
               mountPath: /docker-entrypoint-initdb.d
           livenessProbe:
             exec:
-              command: ["pg_isready", "-U", "demouser"]
+              command: ["sh", "-c", 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"']
             initialDelaySeconds: 15
             periodSeconds: 10
           readinessProbe:
             exec:
-              command: ["pg_isready", "-U", "demouser"]
+              command: ["sh", "-c", 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"']
             initialDelaySeconds: 5
             periodSeconds: 5
       volumes:

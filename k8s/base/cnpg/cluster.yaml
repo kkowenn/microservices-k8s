@@ -15,7 +15,7 @@ spec:
     initdb:
       database: demodb
       owner: demouser
-      postInitSQL:
+      postInitApplicationSQL:
         - |
           CREATE TABLE IF NOT EXISTS items (
             id SERIAL PRIMARY KEY,
@@ -25,6 +25,7 @@ spec:
         - |
           INSERT INTO items (name) VALUES ('Item A'), ('Item B'), ('Item C')
           ON CONFLICT DO NOTHING;
+        - GRANT SELECT ON TABLE items TO demouser;
 
   resources:
     requests:

@@ -5,6 +5,7 @@ namespace: demo-dev
 
 resources:
 - ../../base
+- secret.yaml
 
 replicas:
 - name: api
@@ -13,7 +14,7 @@ replicas:
   count: 1
 - name: nginx
   count: 1
-# These PostgreSQL containers do not configure replication. # backup pod  postgresql should be 1 just easier practice
+# Standalone PostgreSQL does not configure replication.
 - name: postgres
   count: 1
 
