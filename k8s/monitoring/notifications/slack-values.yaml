@@ -1,5 +1,5 @@
 # Optional: requires alertmanager-slack Secret with key url in monitoring.
-# ยังไม่ได้devจ้าา เดี๋ยวว่างมารอเล่น
+# ยังไม่ได้ devจ้าา เดี๋ยวว่างมารอเล่น
 alertmanager:
   alertmanagerSpec:
     secrets: [alertmanager-slack]

@@ -293,4 +293,6 @@ Open **http://localhost:3001** and sign in:
 | Username | `admin` |
 | Password | Output from the command above |
 
-> **Note:** The password is stored as a Base64-encoded value in a Kubernetes Secret. Avoid committing credentials or command output to Git.
+> **Note:** The password is stored as a Base64-encoded value in a Kubernetes Secret. Avoid committing credentials or command output to Git. and PostgreSQL exporter, Loki, and Alloy configurations are included as optional components. A core-only Prometheus/Grafana installation does not install them. The full scripts/monitoring/install.sh installer installs all three.
+
+

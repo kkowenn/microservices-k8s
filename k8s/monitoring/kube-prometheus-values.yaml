@@ -1,4 +1,5 @@
 # Local learning profile; review storage and capacity for shared deployments.
+# use in diagram
 fullnameOverride: monitoring
 prometheus:
   prometheusSpec:
