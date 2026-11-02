@@ -1,14 +1,20 @@
 #!/usr/bin/env bash
-# Explicit, opt-in provisioning for an existing standalone test database.
+# Stop script when errors occur
 set -euo pipefail
+
+# Require Kubernetes context and ns
 : "${KUBE_CONTEXT:?Set an explicit KUBE_CONTEXT}"
 : "${APP_NAMESPACE:?Set APP_NAMESPACE}"
+
+# Validate the provided password file
 [[ $# == 1 && -s "$1" ]] || { echo "Usage: $0 PASSWORD_FILE (keep outside Git)" >&2; exit 1; }
 kube=(kubectl --context="$KUBE_CONTEXT" -n "$APP_NAMESPACE")
 "${kube[@]}" get statefulset/postgres >/dev/null
 "${kube[@]}" get secret/postgres-admin-credentials >/dev/null
 "${kube[@]}" create secret generic postgres-monitoring-credentials --from-file="password=$1" --dry-run=client -o yaml |
   "${kube[@]}" apply --server-side --field-manager=monitoring-setup -f -
+  
+# create and configure a dedicated PostgreSQL monitoring user
 job="monitoring-role-$(date +%s)-$RANDOM"
 trap '"${kube[@]}" delete job "$job" --ignore-not-found --wait=false >/dev/null' EXIT
 JOB_NAME="$job" python3 - <<'PY' | "${kube[@]}" apply -f -

@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 source "$ROOT/k8s/monitoring/charts.env"
+
+# check chart
 rendered=$(mktemp -d)
 trap 'rm -rf "$rendered"' EXIT
 if [[ -z "${CHART_DIR:-}" ]]; then
@@ -25,5 +28,7 @@ for chart in kube-prometheus-stack loki alloy prometheus-postgres-exporter; do
   helm template "$release" "$CHART_DIR/$chart" -n "$namespace" --kube-version 1.35.0 \
     -f "$ROOT/k8s/monitoring/$values.yaml" > "$rendered/$chart.yaml"
 done
+
+# Run monitoring configuration unit tests against the rendered manifests
 MONITORING_RENDER_DIR="$rendered" python3 -m unittest discover -s "$ROOT/tests" -p test_monitoring.py -v
 (cd "$ROOT/k8s/monitoring/alerts" && promtool check rules rules.yaml && promtool test rules rules.test.yaml)
