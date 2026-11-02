@@ -1,3 +1,4 @@
+# PostgreSQL exporter, Loki, and Alloy configurations are included as optional components
 fullnameOverride: alloy
 controller:
   type: daemonset

@@ -2,7 +2,7 @@ rule_files:
 - rules.yaml
 evaluation_interval: 1m
 tests:
-- name: database outage fires then resolves
+- name: b outage fires then resolves
   interval: 1m
   input_series:
   - series: pg_up{namespace="demo-test",service="postgres-exporter"}

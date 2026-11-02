@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Only run in an isolated test namespace: this temporarily stops PostgreSQL.
+
+# Stop execution when errors occur
 set -euo pipefail
+
+# Set kube
 : "${KUBE_CONTEXT:?Set KUBE_CONTEXT to an explicit test cluster context}"
 : "${NAMESPACE:?Set NAMESPACE to an isolated test namespace}"
 OUTAGE_TEST_PORT="${OUTAGE_TEST_PORT:-18000}"
